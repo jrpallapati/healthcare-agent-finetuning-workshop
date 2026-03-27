@@ -282,7 +282,7 @@ This is the key lesson.
 - Lecture notes: [module_3_hf_deploy_inference/notes.md](module_3_hf_deploy_inference/notes.md)
 - Notebook: [module_3_hf_deploy_inference/hf_inference.ipynb](module_3_hf_deploy_inference/hf_inference.ipynb)
 
-#### Lecture Outline (10 min)
+#### Lecture Outline (15 min)
 
 **1. What Lives on HF Hub (3 min)**
 
@@ -317,6 +317,47 @@ Saves ~1 GB VRAM vs loading two separate models.
 | `temperature` | 0.1–0.3 | Medical info must be consistent; high temp causes hallucinations |
 | `top_p` | 0.5–0.7 | Restrict to high-probability tokens |
 | `max_new_tokens` | 256–512 | Long enough for thorough answers, short enough to prevent rambling |
+
+**4. Production Deployment & Cloud Scaling (5 min — lecture only)**
+
+This is a "where do you go from here" overview. Students won't deploy to cloud
+in class, but they need to know the landscape. Walk through this table quickly:
+
+| Strategy | Examples | Cold Start | Cost Model | Best For |
+|---|---|---|---|---|
+| **Serverless** | SageMaker Serverless, HF Endpoints | 30-120s | Pay-per-request | <100 req/day, prototyping |
+| **Dedicated GPU** | SageMaker Real-time, Azure ML, GCP Vertex AI | None | Pay-per-hour | Production with SLAs |
+| **Container-based** | vLLM/TGI on ECS, EKS, EC2 | None (pre-warmed) | Pay-per-hour | Multi-model, custom pipelines, K8s teams |
+| **Model-as-a-Service** | AWS Bedrock, Azure OpenAI | None | Pay-per-token | Zero-ops (but limited model catalog) |
+
+**Key points to mention:**
+
+- **Right-size your instance:** Our 1.5B model in 4-bit needs only a T4 ($0.74/hr on
+  SageMaker). Using an A100 ($37/hr) would waste 98% of the GPU.
+- **vLLM is a game-changer:** Raw `model.generate()` processes one request at a time.
+  vLLM with continuous batching gives 2-4× throughput on the same GPU.
+- **Adapter merging for production:** In class we load base + adapter separately
+  (for toggle convenience). In production, merge them:
+  `merged_model = ft_model.merge_and_unload()` — one fewer network call.
+- **Scale-to-zero saves money:** For bursty traffic (e.g., clinic hours only),
+  SageMaker Serverless or scheduled ECS scaling avoids 24/7 GPU cost.
+- **Healthcare compliance:** AWS, Azure, and GCP all offer HIPAA-eligible
+  configurations — but you must set them up correctly (VPC, encryption, audit logs).
+  RunPod and generic GPU providers typically are NOT HIPAA-compliant.
+
+**Decision flowchart** (draw on board or show from notes Section 14):
+
+```
+Traffic < 100/day + can tolerate cold starts → Serverless
+Traffic > 100/day + need low latency         → Dedicated GPU endpoint
+Need multi-model or custom pipeline          → Container (vLLM on ECS/EKS)
+Model in provider's catalog + zero-ops       → Model-as-a-Service (Bedrock)
+```
+
+> **Detailed reference:** Section 14 of `module_3_hf_deploy_inference/notes.md`
+> covers all four strategies with architecture diagrams, instance type tables,
+> auto-scaling configurations, cost optimization tips, and a SageMaker
+> deployment code example. Point students there for self-study.
 
 #### Live Demo (20 min)
 
